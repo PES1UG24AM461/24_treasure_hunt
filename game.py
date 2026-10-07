@@ -22,7 +22,7 @@ WIDTH = COLS * TILE
 HEIGHT = ROWS * TILE + 50
 FPS = 60
 
-# Mini-map settings
+# Mini-map
 MINIMAP_TILE = 6
 MINIMAP_MARGIN = 10
 
@@ -78,12 +78,11 @@ def find_path(grid, start, target):
 
 
 def generate_world():
-    """Generate dungeon rooms, corridors, key, chest, traps and guard points."""
+    """Generate dungeon rooms, corridors, key, chest, traps and guard."""
 
     grid = [[WALL] * COLS for _ in range(ROWS)]
     rooms = []
 
-    # Generate enough rooms for a reliable dungeon.
     attempts = 0
 
     while len(rooms) < 8 and attempts < 100:
@@ -109,7 +108,6 @@ def generate_world():
                 for rx in range(x, x + w):
                     grid[ry][rx] = FLOOR
 
-    # Make sure there are enough rooms.
     if len(rooms) < 2:
         fallback = pygame.Rect(2, 2, 5, 5)
         second = pygame.Rect(12, 8, 5, 5)
@@ -121,12 +119,11 @@ def generate_world():
                 for rx in range(room.x, room.x + room.width):
                     grid[ry][rx] = FLOOR
 
-    # Connect every room to the next room.
+    # Connect rooms
     for i in range(len(rooms) - 1):
         ax, ay = rooms[i].centerx, rooms[i].centery
         bx, by = rooms[i + 1].centerx, rooms[i + 1].centery
 
-        # Horizontal corridor
         cx = ax
 
         while cx != bx:
@@ -135,7 +132,6 @@ def generate_world():
 
         grid[ay][bx] = FLOOR
 
-        # Vertical corridor
         cy = ay
 
         while cy != by:
@@ -144,10 +140,9 @@ def generate_world():
 
         grid[by][bx] = FLOOR
 
-    # Starting room
+    # Start, key and chest
     start = rooms[0]
 
-    # Chest and key rooms
     chest_room = rooms[-1]
     key_room = rooms[-2]
 
@@ -165,7 +160,7 @@ def generate_world():
     grid[key_pos[0]][key_pos[1]] = KEY
 
     # --------------------------------------------------------
-    # GUARANTEED SAFE PATH
+    # SAFE PATH
     # --------------------------------------------------------
 
     start_cell = (
@@ -185,13 +180,14 @@ def generate_world():
         chest_pos
     )
 
-    safe_path = set(path_to_key + path_to_chest)
+    safe_path = set(
+        path_to_key + path_to_chest
+    )
 
     # --------------------------------------------------------
-    # GUARD PATROL POINTS
+    # GUARD PATROL
     # --------------------------------------------------------
 
-    # Put the guard inside the chest room.
     guard_y = chest_room.centery * TILE + 7
 
     guard_x1 = chest_room.left * TILE + 7
@@ -206,7 +202,6 @@ def generate_world():
     # TRAPS
     # --------------------------------------------------------
 
-    # Avoid the safe path, starting room and guard patrol row.
     trap_candidates = []
 
     for r in range(ROWS):
@@ -228,8 +223,10 @@ def generate_world():
 
     random.shuffle(trap_candidates)
 
-    # Add several traps.
-    trap_count = min(8, len(trap_candidates))
+    trap_count = min(
+        8,
+        len(trap_candidates)
+    )
 
     for r, c in trap_candidates[:trap_count]:
         grid[r][c] = TRAP
@@ -257,8 +254,15 @@ COLORS = {
 class Player:
 
     def __init__(self, x, y):
-        self.rect = pygame.Rect(x, y, 28, 28)
+        self.rect = pygame.Rect(
+            x,
+            y,
+            28,
+            28
+        )
+
         self.color = (60, 120, 220)
+
         self.has_key = False
 
     def move(self, keys, grid, rows, cols):
@@ -277,8 +281,21 @@ class Player:
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
             dy = SPEED
 
-        self._try_move(dx, 0, grid, rows, cols)
-        self._try_move(0, dy, grid, rows, cols)
+        self._try_move(
+            dx,
+            0,
+            grid,
+            rows,
+            cols
+        )
+
+        self._try_move(
+            0,
+            dy,
+            grid,
+            rows,
+            cols
+        )
 
     def _try_move(self, dx, dy, grid, rows, cols):
         new = self.rect.move(dx, dy)
@@ -309,7 +326,7 @@ class Player:
             self.rect
         )
 
-        # Small key indicator above the player
+        # Small key indicator beside player
         if self.has_key:
             pygame.draw.circle(
                 screen,
@@ -351,7 +368,9 @@ class Guard:
         self.color = (190, 60, 60)
 
     def update(self):
-        self.rect.x += self.speed * self.direction
+        self.rect.x += (
+            self.speed * self.direction
+        )
 
         if self.rect.x >= self.right_limit:
             self.rect.x = self.right_limit
@@ -369,7 +388,6 @@ class Guard:
             border_radius=6
         )
 
-        # Guard eyes
         pygame.draw.circle(
             screen,
             (240, 220, 220),
@@ -441,15 +459,16 @@ class GameEngine:
             sx = TILE + 6
             sy = TILE + 6
 
-        # Remember starting position.
-        self.start_pos = (sx, sy)
+        self.start_pos = (
+            sx,
+            sy
+        )
 
         self.player = Player(
             sx,
             sy
         )
 
-        # Guard always exists.
         self.guard = Guard(
             guard_points[0],
             guard_points[1]
@@ -489,7 +508,6 @@ class GameEngine:
 
         keys = pygame.key.get_pressed()
 
-        # Player movement
         self.player.move(
             keys,
             self.grid,
@@ -497,17 +515,15 @@ class GameEngine:
             COLS
         )
 
-        # Guard movement
         self.guard.update()
 
-        # ----------------------------------------------------
-        # GUARD COLLISION
-        # ----------------------------------------------------
-
+        # Guard collision
         if self.player.rect.colliderect(
             self.guard.rect
         ):
-            self.player.rect.topleft = self.start_pos
+            self.player.rect.topleft = (
+                self.start_pos
+            )
 
             self.status = (
                 "The guard caught you! "
@@ -516,12 +532,15 @@ class GameEngine:
 
             return
 
-        # ----------------------------------------------------
-        # CURRENT PLAYER CELL
-        # ----------------------------------------------------
+        pr = (
+            self.player.rect.centery
+            // TILE
+        )
 
-        pr = self.player.rect.centery // TILE
-        pc = self.player.rect.centerx // TILE
+        pc = (
+            self.player.rect.centerx
+            // TILE
+        )
 
         if not (
             0 <= pr < ROWS
@@ -531,13 +550,11 @@ class GameEngine:
 
         cell = self.grid[pr][pc]
 
-        # ----------------------------------------------------
-        # TRAP
-        # ----------------------------------------------------
-
+        # Trap
         if cell == TRAP:
-
-            self.player.rect.topleft = self.start_pos
+            self.player.rect.topleft = (
+                self.start_pos
+            )
 
             self.status = (
                 "Ouch! You triggered a trap! "
@@ -546,12 +563,8 @@ class GameEngine:
 
             return
 
-        # ----------------------------------------------------
-        # KEY
-        # ----------------------------------------------------
-
+        # Key
         if cell == KEY:
-
             self.player.has_key = True
 
             self.grid[pr][pc] = FLOOR
@@ -560,12 +573,8 @@ class GameEngine:
                 "Got the key! Find the CHEST!"
             )
 
-        # ----------------------------------------------------
-        # CHEST
-        # ----------------------------------------------------
-
+        # Chest
         elif cell == CHEST:
-
             if self.player.has_key:
                 self.won = True
 
@@ -578,10 +587,15 @@ class GameEngine:
     # --------------------------------------------------------
 
     def draw_minimap(self):
-        """Draw a real-time mini-map in the top-right corner."""
+        """Draw the real-time dungeon mini-map."""
 
-        map_width = COLS * MINIMAP_TILE
-        map_height = ROWS * MINIMAP_TILE
+        map_width = (
+            COLS * MINIMAP_TILE
+        )
+
+        map_height = (
+            ROWS * MINIMAP_TILE
+        )
 
         panel = pygame.Rect(
             WIDTH
@@ -597,14 +611,12 @@ class GameEngine:
             + MINIMAP_MARGIN * 2
         )
 
-        # Mini-map background
         pygame.draw.rect(
             self.screen,
             (15, 15, 25),
             panel
         )
 
-        # Mini-map border
         pygame.draw.rect(
             self.screen,
             (220, 220, 220),
@@ -612,7 +624,6 @@ class GameEngine:
             2
         )
 
-        # Draw dungeon layout
         for r in range(ROWS):
             for c in range(COLS):
 
@@ -642,16 +653,15 @@ class GameEngine:
                     mini_rect
                 )
 
-        # ----------------------------------------------------
-        # PLAYER POSITION ON MINI-MAP
-        # ----------------------------------------------------
-
+        # Player position
         player_row = (
-            self.player.rect.centery // TILE
+            self.player.rect.centery
+            // TILE
         )
 
         player_col = (
-            self.player.rect.centerx // TILE
+            self.player.rect.centerx
+            // TILE
         )
 
         if (
@@ -679,6 +689,99 @@ class GameEngine:
             )
 
     # --------------------------------------------------------
+    # INVENTORY HUD
+    # --------------------------------------------------------
+
+    def draw_inventory(self):
+        """Draw the key inventory slot."""
+
+        # Inventory label
+        label = self.font.render(
+            "INVENTORY",
+            True,
+            (200, 200, 200)
+        )
+
+        self.screen.blit(
+            label,
+            (WIDTH - 190, ROWS * TILE + 5)
+        )
+
+        # Inventory slot
+        slot = pygame.Rect(
+            WIDTH - 65,
+            ROWS * TILE + 5,
+            40,
+            40
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            (45, 45, 60),
+            slot
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            (180, 180, 190),
+            slot,
+            2
+        )
+
+        # Draw key when collected
+        if self.player.has_key:
+
+            center_x = slot.centerx
+            center_y = slot.centery
+
+            # Key ring
+            pygame.draw.circle(
+                self.screen,
+                (255, 220, 60),
+                (center_x - 5, center_y - 5),
+                7,
+                3
+            )
+
+            # Key shaft
+            pygame.draw.line(
+                self.screen,
+                (255, 220, 60),
+                (center_x, center_y),
+                (center_x + 11, center_y + 11),
+                4
+            )
+
+            # Key teeth
+            pygame.draw.line(
+                self.screen,
+                (255, 220, 60),
+                (
+                    center_x + 6,
+                    center_y + 6
+                ),
+                (
+                    center_x + 6,
+                    center_y + 12
+                ),
+                3
+            )
+
+            pygame.draw.line(
+                self.screen,
+                (255, 220, 60),
+                (
+                    center_x + 10,
+                    center_y + 10
+                ),
+                (
+                    center_x + 10,
+                    center_y + 15
+                ),
+                3
+            )
+
+    # --------------------------------------------------------
     # DRAW
     # --------------------------------------------------------
 
@@ -687,10 +790,7 @@ class GameEngine:
             (30, 25, 40)
         )
 
-        # ----------------------------------------------------
-        # DUNGEON
-        # ----------------------------------------------------
-
+        # Dungeon
         for r in range(ROWS):
             for c in range(COLS):
 
@@ -763,26 +863,17 @@ class GameEngine:
                         3
                     )
 
-        # ----------------------------------------------------
-        # GUARD
-        # ----------------------------------------------------
-
+        # Guard
         self.guard.draw(
             self.screen
         )
 
-        # ----------------------------------------------------
-        # PLAYER
-        # ----------------------------------------------------
-
+        # Player
         self.player.draw(
             self.screen
         )
 
-        # ----------------------------------------------------
-        # MINI-MAP
-        # ----------------------------------------------------
-
+        # Mini-map
         self.draw_minimap()
 
         # ----------------------------------------------------
@@ -802,24 +893,35 @@ class GameEngine:
             hud
         )
 
-        status_text = (
-            self.status
-            + "  |  R=Restart"
-        )
-
+        # Status text
         st = self.font.render(
-            status_text,
+            self.status,
             True,
             (200, 200, 200)
         )
 
         self.screen.blit(
             st,
+            (8, ROWS * TILE + 13)
+        )
+
+        # Restart text
+        restart = self.font.render(
+            "R=Restart",
+            True,
+            (150, 150, 150)
+        )
+
+        self.screen.blit(
+            restart,
             (
-                8,
+                WIDTH - 310,
                 ROWS * TILE + 13
             )
         )
+
+        # Inventory
+        self.draw_inventory()
 
         # ----------------------------------------------------
         # WIN SCREEN
